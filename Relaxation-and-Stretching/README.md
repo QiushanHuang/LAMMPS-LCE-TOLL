@@ -85,6 +85,58 @@ cd ../stretching
 mpirun -np 4 lmp_mpi -in in.single_chain_constant_force_aligned_box-F20.00-T080-margin100-xuyu-zu.lmp
 ```
 
+## Recommended Command Templates
+
+The most robust workflow is:
+
+1. keep the `.lmp` scripts in this repository
+2. `cd` into the working directory that contains your restart files
+3. launch LAMMPS with the **absolute path** to the script in this repository
+
+In this mode:
+
+- `restart_file` is resolved relative to your current working directory unless you override it with `-var restart_file ...`
+- `output_base` defaults to `.`, so outputs are written into your current working directory
+- the packaged `helper_root` already points to this local repository clone
+
+### Relaxation Template
+
+If `Restart.GB.rho030.500000` is in your current working directory:
+
+```bash
+cd /path/to/working-directory
+/opt/homebrew/bin/mpirun -np 4 /opt/homebrew/bin/lmp_mpi \
+  -in /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/relaxation/in.restart_relaxation_ppp_T050_box200_xuyu-zu.lmp
+```
+
+If the restart name is different, override it explicitly:
+
+```bash
+cd /path/to/working-directory
+/opt/homebrew/bin/mpirun -np 4 /opt/homebrew/bin/lmp_mpi \
+  -var restart_file Restart.GB.rho030.900000 \
+  -in /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/relaxation/in.restart_relaxation_ppp_T050_box200_xuyu-zu.lmp
+```
+
+### Stretching Template
+
+If `Restart.relaxation.860000` is in your current working directory:
+
+```bash
+cd /path/to/working-directory
+/opt/homebrew/bin/mpirun -np 4 /opt/homebrew/bin/lmp_mpi \
+  -in /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/stretching/in.single_chain_constant_force_aligned_box-F20.00-T080-margin100-xuyu-zu.lmp
+```
+
+If you want to select a different relaxed restart:
+
+```bash
+cd /path/to/working-directory
+/opt/homebrew/bin/mpirun -np 4 /opt/homebrew/bin/lmp_mpi \
+  -var restart_file Restart.relaxation.920000 \
+  -in /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/stretching/in.single_chain_constant_force_aligned_box-F20.00-T080-margin100-xuyu-zu.lmp
+```
+
 ## Input / Output Naming
 
 Output directories are generated as:
