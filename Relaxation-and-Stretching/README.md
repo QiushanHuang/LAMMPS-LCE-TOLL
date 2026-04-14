@@ -9,15 +9,20 @@ The scripts share a helper in `helpers/build_output_root.py` that builds the out
 
 ## Directory Layout
 
+File names now encode the main distinguishing parameters directly:
+
+- relaxation: boundary + `T*` + cubic `box_length`
+- stretching: force + `T*` + `x_head_margin` + protocol variant
+
 - `helpers/build_output_root.py`: generates `output_root` names
-- `relaxation/in.restart_relaxation_fff_xuyu-zu.lmp`: baseline `fff`, `T*=0.50`, cubic `box_length=200`
-- `relaxation/in.restart_relaxation_fff_xuyu-zu-08.lmp`: `fff`, `T*=0.80`, cubic `box_length=400`
-- `relaxation/in.restart_relaxation_ppp_xuyu-zu-05.lmp`: `ppp`, `T*=0.50`, cubic `box_length=200`
-- `relaxation/in.restart_relaxation_ppp_xuyu-zu-07.lmp`: `ppp`, `T*=0.70`, cubic `box_length=300`
-- `relaxation/in.restart_relaxation_ppp_xuyu-zu-08.lmp`: `ppp`, `T*=0.80`, cubic `box_length=300`
-- `stretching/in.single_chain_constant_force_aligned_box-F10.00-tail_v0_no_thermal-xuyu-zu.lmp`: force-clamp stretching, `F=10`
-- `stretching/in.single_chain_constant_force_aligned_box-F20.00-tail_v0_no_thermal-xuyu-zu.lmp`: force-clamp stretching, `F=20`, tail velocity zeroed before loading
-- `stretching/in.single_chain_constant_force_aligned_box-F20.00-xuyu-zu.lmp`: force-clamp stretching, `F=20`
+- `relaxation/in.restart_relaxation_fff_T050_box200_xuyu-zu.lmp`: baseline `fff`, `T*=0.50`, cubic `box_length=200`
+- `relaxation/in.restart_relaxation_fff_T080_box400_xuyu-zu.lmp`: `fff`, `T*=0.80`, cubic `box_length=400`
+- `relaxation/in.restart_relaxation_ppp_T050_box200_xuyu-zu.lmp`: `ppp`, `T*=0.50`, cubic `box_length=200`
+- `relaxation/in.restart_relaxation_ppp_T070_box300_xuyu-zu.lmp`: `ppp`, `T*=0.70`, cubic `box_length=300`
+- `relaxation/in.restart_relaxation_ppp_T080_box300_xuyu-zu.lmp`: `ppp`, `T*=0.80`, cubic `box_length=300`
+- `stretching/in.single_chain_constant_force_aligned_box-F10.00-T080-margin60-tail_v0_no_thermal-xuyu-zu.lmp`: force-clamp stretching, `F=10`, `T*=0.80`, `x_head_margin=60`
+- `stretching/in.single_chain_constant_force_aligned_box-F20.00-T050-margin150-tail_v0_no_thermal-xuyu-zu.lmp`: force-clamp stretching, `F=20`, `T*=0.50`, `x_head_margin=150`, tail velocity zeroed before loading
+- `stretching/in.single_chain_constant_force_aligned_box-F20.00-T080-margin60-xuyu-zu.lmp`: force-clamp stretching, `F=20`, `T*=0.80`, `x_head_margin=60`
 
 ## Endpoint Selection
 
@@ -34,7 +39,7 @@ Default behavior:
 If your restart does **not** place the physical chain ends at the minimum and maximum atom IDs, override them manually by editing the script or from the command line, for example:
 
 ```bash
-lmp_mpi -var head_id_override 1 -var tail_id_override 8006 -in in.single_chain_constant_force_aligned_box-F20.00-tail_v0_no_thermal-xuyu-zu.lmp
+lmp_mpi -var head_id_override 1 -var tail_id_override 8006 -in in.single_chain_constant_force_aligned_box-F20.00-T050-margin150-tail_v0_no_thermal-xuyu-zu.lmp
 ```
 
 Use the **same** endpoint override pair in both relaxation and stretching when you want a consistent workflow.
@@ -47,7 +52,7 @@ Change into the chosen relaxation directory and run one of the scripts:
 
 ```bash
 cd relaxation
-mpirun -np 4 lmp_mpi -in in.restart_relaxation_ppp_xuyu-zu-05.lmp
+mpirun -np 4 lmp_mpi -in in.restart_relaxation_ppp_T050_box200_xuyu-zu.lmp
 ```
 
 What it does:
@@ -75,7 +80,7 @@ Then run, for example:
 
 ```bash
 cd ../stretching
-mpirun -np 4 lmp_mpi -in in.single_chain_constant_force_aligned_box-F20.00-tail_v0_no_thermal-xuyu-zu.lmp
+mpirun -np 4 lmp_mpi -in in.single_chain_constant_force_aligned_box-F20.00-T050-margin150-tail_v0_no_thermal-xuyu-zu.lmp
 ```
 
 ## Input / Output Naming
