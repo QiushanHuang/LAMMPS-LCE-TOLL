@@ -1,0 +1,314 @@
+# Restart-based free relaxation in an enlarged periodic cubic box.
+# Geometry protocol:
+# - read an equilibrated restart
+# - expand to a temporary nonperiodic transform box
+# - restore all atoms to the restart's current xu/yu/zu coordinates
+# - rotate the whole chain so the head->tail direction aligns with +x
+# - translate the whole cluster to the center of a cubic box
+# - shrink to the final periodic orthogonal box with equal side lengths
+# - run free thermal relaxation with no frozen atoms and no external load in ppp
+
+variable        restart_file index Restart.GB.rho030.500000
+variable        helper_root index ../helpers
+variable        output_base index .
+variable        output_root_file index ./.output_root.txt
+variable        protocol_tag index relaxation_ppp_xuyu_zu
+
+variable        target_T     index 0.70
+variable        ts           index 0.001
+variable        Tdamp        index 0.1
+variable        Tchain       index 3
+variable        dry_run      index no
+
+variable        head_id_override index auto
+variable        tail_id_override index auto
+
+variable        force_mag    index 20
+variable        relax_time   index 4000
+
+# Cubic relaxation box controls.
+variable        box_length    index 300
+variable        transform_pad equal ${box_length}
+variable        Lx_box        equal ${box_length}
+variable        Ly_box        equal ${box_length}
+variable        Lz_box        equal ${box_length}
+
+variable        sample_every index 1000
+variable        dump_every   index 1000
+variable        restart_every equal ceil(${dump_every}*10.0)
+
+shell           python3 ${helper_root}/build_output_root.py ${output_base} ${restart_file} ${target_T} ${force_mag} ${protocol_tag} ${output_root_file}
+include         ${output_root_file}
+shell           rm -f ${output_root_file}
+shell           mkdir -p ${output_root}
+print           "OUTPUT ROOT: ${output_root}"
+log             ${output_root}/log.force_clamp_aligned_box.lammps
+
+read_restart    ${restart_file}
+reset_timestep  0
+timestep        ${ts}
+
+neighbor        1.0 nsq
+neigh_modify    delay 0 every 1 check yes
+comm_modify     cutoff 35.0
+
+variable        dA          equal 0.00001
+variable        k_bond_ss   equal 250.0
+variable        r0_ss       equal 1.0
+variable        r0_sa       equal 0.5
+variable        epsilon0    equal 1.0
+variable        sig0        equal 1.0
+variable        eps_a       equal 1.0
+variable        eps_b       equal 1.0
+variable        eps_c       equal 0.2
+variable        gb_gamma    equal 1.0
+variable        gb_upsilon  equal 3.0
+variable        gb_mu       equal 1.0
+variable        gb_rcut     equal 5.0
+variable        dB          equal 1.0
+variable        epsSS       equal 1.0
+variable        sigSS       equal ${dB}
+variable        epsSE       equal ${epsilon0}
+variable        sigSE       equal ${sig0}
+variable        rc_wca      equal 1.122462048309373*v_sigSS
+variable        sigAA       equal ${dA}
+variable        rcAA        equal 1.122462048309373*v_sigAA
+variable        sigSA       equal 0.5*(v_sigSS+v_dA)
+variable        rcSA        equal 1.122462048309373*v_sigSA
+variable        sigEA       equal 0.5*(v_sig0+v_dA)
+variable        rcEA        equal 1.122462048309373*v_sigEA
+variable        PI          equal 3.141592653589793
+variable        tiny        equal 1.0e-12
+
+bond_style      harmonic
+bond_coeff      1 ${k_bond_ss} ${r0_ss}
+bond_coeff      2 ${k_bond_ss} ${r0_sa}
+bond_coeff      3 1.0 1.0
+bond_coeff      4 1.0 1.0
+
+special_bonds   lj 0.0 1.0 1.0
+pair_style      hybrid gayberne ${gb_gamma} ${gb_upsilon} ${gb_mu} ${gb_rcut} lj/cut ${rc_wca}
+pair_modify     shift yes
+pair_coeff      1 1 gayberne ${epsilon0} ${sig0} ${eps_a} ${eps_b} ${eps_c} ${eps_a} ${eps_b} ${eps_c} ${gb_rcut}
+pair_coeff      2 2 lj/cut ${epsSS} ${sigSS} ${rc_wca}
+pair_coeff      3 3 lj/cut 0.000001 ${sigAA} ${rcAA}
+pair_coeff      2 3 lj/cut 0.000001 ${sigSA} ${rcSA}
+pair_coeff      1 3 lj/cut 0.000001 ${sigEA} ${rcEA}
+pair_coeff      1 2 gayberne ${epsSE} ${sigSE} ${eps_a} ${eps_b} ${eps_c} 1.0 1.0 1.0 ${gb_rcut}
+
+compute         atom_ids all property/atom id
+compute         min_atom_id all reduce min c_atom_ids
+compute         max_atom_id all reduce max c_atom_ids
+
+run             0
+
+if "${head_id_override} == auto" then "variable head_id equal c_min_atom_id" else "variable head_id index ${head_id_override}"
+if "${tail_id_override} == auto" then "variable tail_id equal c_max_atom_id" else "variable tail_id index ${tail_id_override}"
+print           "ATOM-ID SETUP: head_id = ${head_id}, tail_id = ${tail_id} (overrides: head=${head_id_override}, tail=${tail_id_override})"
+
+group           ellipsoid empty
+group           sphere empty
+group           anchor empty
+group           rigid_lc empty
+group           head empty
+group           tail empty
+group           sphere_thermo empty
+group           ellipsoid clear
+group           sphere clear
+group           anchor clear
+group           rigid_lc clear
+group           head clear
+group           tail clear
+group           sphere_thermo clear
+group           ellipsoid type 1
+group           sphere type 2
+group           anchor type 3
+group           rigid_lc type 1 3
+group           head id ${head_id}
+group           tail id ${tail_id}
+group           sphere_thermo type 2
+
+compute         T_sph sphere_thermo temp
+compute_modify  T_sph extra/dof 0
+compute         T_tail tail temp
+compute_modify  T_tail extra/dof 0
+compute         KE_ell ellipsoid ke
+compute         ER_ell ellipsoid erotate/asphere
+compute         orient all property/atom quatw quati quatj quatk
+compute         shape  all property/atom shapex shapey shapez
+compute         pos all property/atom x y z
+fix             snapshot_u all store/state 0 xu yu zu
+compute         xmin_restart_u all reduce min f_snapshot_u[1]
+compute         xmax_restart_u all reduce max f_snapshot_u[1]
+compute         ymin_restart_u all reduce min f_snapshot_u[2]
+compute         ymax_restart_u all reduce max f_snapshot_u[2]
+compute         zmin_restart_u all reduce min f_snapshot_u[3]
+compute         zmax_restart_u all reduce max f_snapshot_u[3]
+compute         xmin all reduce min c_pos[1]
+compute         xmax all reduce max c_pos[1]
+compute         ymin all reduce min c_pos[2]
+compute         ymax all reduce max c_pos[2]
+compute         zmin all reduce min c_pos[3]
+compute         zmax all reduce max c_pos[3]
+
+run             0
+
+variable        xu_atom atom f_snapshot_u[1]
+variable        yu_atom atom f_snapshot_u[2]
+variable        zu_atom atom f_snapshot_u[3]
+variable        L_contour equal count(sphere)*1.0+count(ellipsoid)*3.0
+variable        dof_sph equal 3*count(sphere_thermo)
+variable        dof_tail equal 3*count(tail)
+variable        dof_ell equal 5*count(ellipsoid)
+variable        dof_mix equal v_dof_sph+v_dof_ell
+variable        T_ell equal 2.0*(c_KE_ell+c_ER_ell)/v_dof_ell
+variable        T_mix equal (v_dof_sph*c_T_sph+v_dof_ell*v_T_ell)/v_dof_mix
+variable        xlo_tmp equal -v_transform_pad
+variable        xhi_tmp equal v_Lx_box+v_transform_pad
+variable        ylo_tmp equal -v_transform_pad
+variable        yhi_tmp equal ${Ly_box}+v_transform_pad
+variable        zlo_tmp equal -v_transform_pad
+variable        zhi_tmp equal ${Lz_box}+v_transform_pad
+
+print           "ALIGNED-BOX SETUP: current restart xu/yu/zu bounds = x[$(c_xmin_restart_u), $(c_xmax_restart_u)] y[$(c_ymin_restart_u), $(c_ymax_restart_u)] z[$(c_zmin_restart_u), $(c_zmax_restart_u)]"
+print           "RELAX SETUP: contour length = ${L_contour}, cubic box length = ${box_length}"
+print           "ALIGNED-BOX SETUP: temporary transform box = x[${xlo_tmp}, ${xhi_tmp}] y[${ylo_tmp}, ${yhi_tmp}] z[${zlo_tmp}, ${zhi_tmp}]"
+print           "TEMP CHECK: T_sph uses sphere_thermo translational KE only; T_ell uses ellipsoid KE with 5 DOF per E; tail temperature is reported separately"
+print           "TEMP FORMULA: T_mix = (dof_sph*T_sph + dof_ell*T_ell)/(dof_sph + dof_ell), with dof_sph=$(v_dof_sph), dof_ell=$(v_dof_ell), dof_mix=$(v_dof_mix), dof_tail=$(v_dof_tail)"
+print           "PROTOCOL TAG: ${protocol_tag} (geometry rebuilt from the current restart snapshot xu/yu/zu coordinates; temporary transform in fff, final relaxation in ppp cubic box)"
+
+change_box      all boundary f f f x final ${xlo_tmp} ${xhi_tmp} y final ${ylo_tmp} ${yhi_tmp} z final ${zlo_tmp} ${zhi_tmp} units box
+
+run             0
+
+set             group all x v_xu_atom y v_yu_atom z v_zu_atom
+set             group all image 0 0 0
+
+run             0
+
+variable        x_head0 equal xcm(head,x)
+variable        y_head0 equal xcm(head,y)
+variable        z_head0 equal xcm(head,z)
+variable        x_tail0 equal xcm(tail,x)
+variable        y_tail0 equal xcm(tail,y)
+variable        z_tail0 equal xcm(tail,z)
+
+variable        dx0 equal v_x_tail0-v_x_head0
+variable        dy0 equal v_y_tail0-v_y_head0
+variable        dz0 equal v_z_tail0-v_z_head0
+variable        L_init_raw equal sqrt(v_dx0*v_dx0+v_dy0*v_dy0+v_dz0*v_dz0)
+variable        L_init equal ${L_init_raw}
+variable        cosang equal v_dx0/v_L_init
+variable        cosang_clip equal ternary(v_cosang>1.0,1.0,ternary(v_cosang<-1.0,-1.0,v_cosang))
+variable        axis_raw_norm equal sqrt(v_dy0*v_dy0+v_dz0*v_dz0)
+variable        rotax equal 0.0
+variable        rotay equal ternary(v_axis_raw_norm>v_tiny,v_dz0/v_axis_raw_norm,1.0)
+variable        rotaz equal ternary(v_axis_raw_norm>v_tiny,-v_dy0/v_axis_raw_norm,0.0)
+variable        theta_rot equal ternary(v_axis_raw_norm>v_tiny,acos(v_cosang_clip)*180.0/v_PI,ternary(v_dx0>=0.0,0.0,180.0))
+
+print           "ALIGNED-BOX SETUP: restored xu/yu/zu end-to-end vector = (${dx0}, ${dy0}, ${dz0})"
+print           "ALIGNED-BOX SETUP: rotation axis = (${rotax}, ${rotay}, ${rotaz}), theta_rot = ${theta_rot} deg"
+
+displace_atoms  all rotate ${x_head0} ${y_head0} ${z_head0} ${rotax} ${rotay} ${rotaz} ${theta_rot} units box
+
+run             0
+
+variable        xmin_rot equal c_xmin
+variable        xmax_rot equal c_xmax
+variable        ymin_rot equal c_ymin
+variable        ymax_rot equal c_ymax
+variable        zmin_rot equal c_zmin
+variable        zmax_rot equal c_zmax
+variable        xmid_rot equal 0.5*(v_xmin_rot+v_xmax_rot)
+variable        ymid_rot equal 0.5*(v_ymin_rot+v_ymax_rot)
+variable        zmid_rot equal 0.5*(v_zmin_rot+v_zmax_rot)
+variable        x_target equal 0.5*${Lx_box}
+variable        y_target equal 0.5*${Ly_box}
+variable        z_target equal 0.5*${Lz_box}
+variable        shiftx equal v_x_target-v_xmid_rot
+variable        shifty equal v_y_target-v_ymid_rot
+variable        shiftz equal v_z_target-v_zmid_rot
+
+print           "RELAX SETUP: rotated bounds = x[${xmin_rot}, ${xmax_rot}] y[${ymin_rot}, ${ymax_rot}] z[${zmin_rot}, ${zmax_rot}]"
+print           "RELAX SETUP: cluster midpoint before centering = (${xmid_rot}, ${ymid_rot}, ${zmid_rot})"
+
+displace_atoms  all move ${shiftx} ${shifty} ${shiftz} units box
+
+run             0
+
+variable        xmin_pre equal c_xmin
+variable        xmax_pre equal c_xmax
+variable        ymin_pre equal c_ymin
+variable        ymax_pre equal c_ymax
+variable        zmin_pre equal c_zmin
+variable        zmax_pre equal c_zmax
+
+print           "ALIGNED-BOX SETUP: pre-box bounds = x[${xmin_pre}, ${xmax_pre}] y[${ymin_pre}, ${ymax_pre}] z[${zmin_pre}, ${zmax_pre}]"
+
+change_box      all boundary p p p x final 0 ${Lx_box} y final 0 ${Ly_box} z final 0 ${Lz_box} units box
+
+run             0
+
+variable        xmin_post equal c_xmin
+variable        xmax_post equal c_xmax
+variable        ymin_post equal c_ymin
+variable        ymax_post equal c_ymax
+variable        zmin_post equal c_zmin
+variable        zmax_post equal c_zmax
+variable        x_margin_left equal v_xmin_post
+variable        x_margin_right equal ${Lx_box}-v_xmax_post
+variable        y_margin_lower equal v_ymin_post
+variable        y_margin_upper equal ${Ly_box}-v_ymax_post
+variable        z_margin_lower equal v_zmin_post
+variable        z_margin_upper equal ${Lz_box}-v_zmax_post
+
+print           "ALIGNED-BOX SETUP: final periodic box = x[0, ${Lx_box}] y[0, ${Ly_box}] z[0, ${Lz_box}]"
+print           "ALIGNED-BOX SETUP: post-box bounds = x[${xmin_post}, ${xmax_post}] y[${ymin_post}, ${ymax_post}] z[${zmin_post}, ${zmax_post}]"
+print           "ALIGNED-BOX SETUP: margins left/right = (${x_margin_left}, ${x_margin_right}), y lower/upper = (${y_margin_lower}, ${y_margin_upper}), z lower/upper = (${z_margin_lower}, ${z_margin_upper})"
+
+variable        run_steps equal ceil(${relax_time}/${ts})
+if "${dry_run} == yes" then "variable run_steps delete"
+if "${dry_run} == yes" then "variable run_steps equal 0"
+
+fix             thermostat_lc rigid_lc rigid/nvt/small molecule temp ${target_T} ${target_T} ${Tdamp}
+fix             thermostat_sph sphere_thermo nvt temp ${target_T} ${target_T} ${Tdamp} tchain ${Tchain}
+fix_modify      thermostat_sph temp T_sph
+
+variable        x_head equal xcm(head,x)
+variable        x_tail equal xcm(tail,x)
+variable        Lproj equal v_x_tail-v_x_head
+variable        y_head equal xcm(head,y)
+variable        y_tail equal xcm(tail,y)
+variable        z_head equal xcm(head,z)
+variable        z_tail equal xcm(tail,z)
+variable        dx_ht equal v_x_tail-v_x_head
+variable        dy_ht equal v_y_tail-v_y_head
+variable        dz_ht equal v_z_tail-v_z_head
+variable        Ree equal sqrt(v_dx_ht*v_dx_ht+v_dy_ht*v_dy_ht+v_dz_ht*v_dz_ht)
+variable        contour_fraction equal v_Lproj/v_L_contour
+
+variable        step_now equal step
+variable        sim_time equal time
+
+thermo          ${sample_every}
+thermo_style    custom step temp v_T_mix c_T_sph v_T_ell c_T_tail v_dof_sph v_dof_ell v_dof_mix v_dof_tail v_Lproj v_Ree v_contour_fraction press pe ke etotal
+thermo_modify   flush yes lost warn
+
+dump            traj_relax all custom ${dump_every} ${output_root}/traj.relaxation.*.dump id type xu yu zu vx vy vz fx fy fz c_orient[1] c_orient[2] c_orient[3] c_orient[4] c_shape[1] c_shape[2] c_shape[3] mass
+dump_modify     traj_relax colname c_orient[1] quatw colname c_orient[2] quati colname c_orient[3] quatj colname c_orient[4] quatk
+dump_modify     traj_relax colname c_shape[1] shapex colname c_shape[2] shapey colname c_shape[3] shapez
+
+restart         ${restart_every} ${output_root}/Restart.relaxation.*
+
+fix             out all print ${sample_every} "${step_now} ${sim_time} ${Lproj} ${Ree} ${contour_fraction} ${x_head} ${x_tail} ${y_head} ${y_tail} ${z_head} ${z_tail}" file ${output_root}/relaxation_state.dat screen no title "# step time Lproj Ree contour_fraction x_head x_tail y_head y_tail z_head z_tail"
+
+print           "RELAX SETUP: free relaxation with no frozen atoms and no external load, relax_time = ${relax_time}, run_steps = ${run_steps}, dry_run = ${dry_run}"
+
+run             ${run_steps}
+
+write_restart   ${output_root}/Final.relaxation.bin
+unfix           out
+undump          traj_relax
+unfix           thermostat_lc
+unfix           thermostat_sph
+unfix           snapshot_u

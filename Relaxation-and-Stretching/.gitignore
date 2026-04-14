@@ -1,0 +1,9 @@
+*.log
+log.lammps
+.output_root.txt
+output_*/
+traj.*.dump
+Restart.*
+Final.*.bin
+force_clamp_response.dat
+relaxation_state.dat
