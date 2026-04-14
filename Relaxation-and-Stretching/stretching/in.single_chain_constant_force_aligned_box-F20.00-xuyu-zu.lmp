@@ -1,4 +1,5 @@
 # Single-chain constant-force pulling in an aligned slender box.
+# Profile: F=20, T*=0.80, x_head_margin=60, x_length_factor=1.2, protocol=force_clamp_aligned_xuyu_zu
 # Geometry protocol:
 # - read an equilibrated restart
 # - expand to a temporary nonperiodic transform box

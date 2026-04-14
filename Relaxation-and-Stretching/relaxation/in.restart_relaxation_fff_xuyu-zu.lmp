@@ -1,4 +1,5 @@
 # Restart-based free relaxation in an enlarged cubic box.
+# Profile: boundary=fff, T*=0.50, cubic box_length=200, protocol=relaxation_fff_xuyu_zu
 # Geometry protocol:
 # - read an equilibrated restart
 # - expand to a temporary nonperiodic transform box
