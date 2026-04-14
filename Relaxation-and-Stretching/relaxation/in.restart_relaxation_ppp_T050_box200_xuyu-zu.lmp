@@ -10,7 +10,7 @@
 # - run free thermal relaxation with no frozen atoms and no external load in ppp
 
 variable        restart_file index Restart.GB.rho030.500000
-variable        helper_root index ../helpers
+variable        helper_root index /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/helpers
 variable        output_base index .
 variable        output_root_file index ./.output_root.txt
 variable        protocol_tag index relaxation_ppp_xuyu_zu

@@ -1,5 +1,5 @@
 # Single-chain constant-force pulling in an aligned slender box.
-# Profile: F=20, T*=0.80, x_head_margin=60, x_length_factor=1.2, protocol=force_clamp_aligned_xuyu_zu
+# Profile: F=20, T*=0.65, x_head_margin=100, x_length_factor=1.2, protocol=force_clamp_aligned_xuyu_zu
 # Geometry protocol:
 # - read an equilibrated restart
 # - expand to a temporary nonperiodic transform box
@@ -9,13 +9,13 @@
 # - shrink to the final nonperiodic orthogonal box
 # - apply a constant force only along +x to the tail particle
 
-variable        restart_file index Restart.GB.rho030.500000
-variable        helper_root index ../helpers
+variable        restart_file index Restart.relaxation.860000
+variable        helper_root index /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/helpers
 variable        output_base index .
 variable        output_root_file index ./.output_root.txt
 variable        protocol_tag index xuyu_zu
 
-variable        target_T     index 0.80
+variable        target_T     index 0.65
 variable        ts           index 0.001
 variable        Tdamp        index 0.1
 variable        Tchain       index 3
@@ -25,11 +25,11 @@ variable        head_id_override index auto
 variable        tail_id_override index auto
 
 variable        force_mag    index 20
-variable        run_time     index 1000
+variable        run_time     index 5000
 
 # Slender aligned box controls.
 variable        x_length_factor index 1.2
-variable        x_head_margin   index 60
+variable        x_head_margin   index 100
 variable        Ly_box          index $(2*v_x_head_margin)
 variable        Lz_box          index $(2*v_x_head_margin)
 

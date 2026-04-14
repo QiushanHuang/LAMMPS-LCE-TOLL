@@ -15,7 +15,7 @@
 # - and resolves geometry transforms from stored unwrapped restart coordinates
 
 variable        restart_file index Restart.relaxation.860000
-variable        helper_root index ../helpers
+variable        helper_root index /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/helpers
 variable        output_base index .
 variable        output_root_file index ./.output_root.txt
 variable        protocol_tag index tail_v0_no_thermal_xuyu_zu
@@ -30,7 +30,7 @@ variable        head_id_override index auto
 variable        tail_id_override index auto
 
 variable        force_mag    index 20
-variable        run_time     index 4000
+variable        run_time     index 5000
 
 # Slender aligned box controls.
 variable        x_length_factor index 1.2

@@ -1,26 +1,21 @@
-# Single-chain constant-force pulling in an aligned slender box.
-# Profile: F=10, T*=0.80, x_head_margin=60, x_length_factor=1.2, protocol=tail_v0_no_thermal_xuyu_zu
+# Restart-based free relaxation in an enlarged periodic cubic box.
+# Profile: boundary=ppp, T*=0.55, cubic box_length=200, protocol=relaxation_ppp_xuyu_zu
 # Geometry protocol:
 # - read an equilibrated restart
 # - expand to a temporary nonperiodic transform box
 # - restore all atoms to the restart's current xu/yu/zu coordinates
 # - rotate the whole chain so the head->tail direction aligns with +x
-# - translate the head to (x_head_margin, Ly_box/2, Lz_box/2)
-# - shrink to the final nonperiodic orthogonal box
-# - apply a constant force only along +x to the tail particle
-# Protocol tag:
-# - tail_v0_no_thermal_xuyu_zu
-# - this variant explicitly zeros the tail particle velocity before loading
-# - use it to reduce interference from the tail's inherited thermal velocity
-# - and resolves geometry transforms from stored unwrapped restart coordinates
+# - translate the whole cluster to the center of a cubic box
+# - shrink to the final periodic orthogonal box with equal side lengths
+# - run free thermal relaxation with no frozen atoms and no external load in ppp
 
-variable        restart_file index Restart.relaxation.860000
+variable        restart_file index Restart.GB.rho030.500000
 variable        helper_root index /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/helpers
 variable        output_base index .
 variable        output_root_file index ./.output_root.txt
-variable        protocol_tag index tail_v0_no_thermal_xuyu_zu
+variable        protocol_tag index relaxation_ppp_xuyu_zu
 
-variable        target_T     index 0.80
+variable        target_T     index 0.55
 variable        ts           index 0.001
 variable        Tdamp        index 0.1
 variable        Tchain       index 3
@@ -29,18 +24,19 @@ variable        dry_run      index no
 variable        head_id_override index auto
 variable        tail_id_override index auto
 
-variable        force_mag    index 10
-variable        run_time     index 5000
+variable        force_mag    index 20
+variable        relax_time   index 1000
 
-# Slender aligned box controls.
-variable        x_length_factor index 1.2
-variable        x_head_margin   index 60
-variable        Ly_box          index $(2*v_x_head_margin)
-variable        Lz_box          index $(2*v_x_head_margin)
+# Cubic relaxation box controls.
+variable        box_length    index 200
+variable        transform_pad equal ${box_length}
+variable        Lx_box        equal ${box_length}
+variable        Ly_box        equal ${box_length}
+variable        Lz_box        equal ${box_length}
 
 variable        sample_every index 1000
 variable        dump_every   index 1000
-variable        restart_every index 50000
+variable        restart_every equal ceil(${dump_every}*10.0)
 
 shell           python3 ${helper_root}/build_output_root.py ${output_base} ${restart_file} ${target_T} ${force_mag} ${protocol_tag} ${output_root_file}
 include         ${output_root_file}
@@ -131,7 +127,7 @@ group           anchor type 3
 group           rigid_lc type 1 3
 group           head id ${head_id}
 group           tail id ${tail_id}
-group           sphere_thermo subtract sphere head tail
+group           sphere_thermo type 2
 
 compute         T_sph sphere_thermo temp
 compute_modify  T_sph extra/dof 0
@@ -162,14 +158,12 @@ variable        xu_atom atom f_snapshot_u[1]
 variable        yu_atom atom f_snapshot_u[2]
 variable        zu_atom atom f_snapshot_u[3]
 variable        L_contour equal count(sphere)*1.0+count(ellipsoid)*3.0
-variable        Lx_box equal ${x_length_factor}*v_L_contour+${x_head_margin}
 variable        dof_sph equal 3*count(sphere_thermo)
 variable        dof_tail equal 3*count(tail)
 variable        dof_ell equal 5*count(ellipsoid)
 variable        dof_mix equal v_dof_sph+v_dof_ell
 variable        T_ell equal 2.0*(c_KE_ell+c_ER_ell)/v_dof_ell
 variable        T_mix equal (v_dof_sph*c_T_sph+v_dof_ell*v_T_ell)/v_dof_mix
-variable        transform_pad equal ${x_head_margin}
 variable        xlo_tmp equal -v_transform_pad
 variable        xhi_tmp equal v_Lx_box+v_transform_pad
 variable        ylo_tmp equal -v_transform_pad
@@ -178,11 +172,11 @@ variable        zlo_tmp equal -v_transform_pad
 variable        zhi_tmp equal ${Lz_box}+v_transform_pad
 
 print           "ALIGNED-BOX SETUP: current restart xu/yu/zu bounds = x[$(c_xmin_restart_u), $(c_xmax_restart_u)] y[$(c_ymin_restart_u), $(c_ymax_restart_u)] z[$(c_zmin_restart_u), $(c_zmax_restart_u)]"
-print           "ALIGNED-BOX SETUP: contour length = ${L_contour}, Lx_box = ${Lx_box}, x_head_margin = ${x_head_margin}"
+print           "RELAX SETUP: contour length = ${L_contour}, cubic box length = ${box_length}"
 print           "ALIGNED-BOX SETUP: temporary transform box = x[${xlo_tmp}, ${xhi_tmp}] y[${ylo_tmp}, ${yhi_tmp}] z[${zlo_tmp}, ${zhi_tmp}]"
 print           "TEMP CHECK: T_sph uses sphere_thermo translational KE only; T_ell uses ellipsoid KE with 5 DOF per E; tail temperature is reported separately"
 print           "TEMP FORMULA: T_mix = (dof_sph*T_sph + dof_ell*T_ell)/(dof_sph + dof_ell), with dof_sph=$(v_dof_sph), dof_ell=$(v_dof_ell), dof_mix=$(v_dof_mix), dof_tail=$(v_dof_tail)"
-print           "PROTOCOL TAG: ${protocol_tag} (tail initial velocity zeroed; geometry transform rebuilt from the current restart snapshot xu/yu/zu coordinates)"
+print           "PROTOCOL TAG: ${protocol_tag} (geometry rebuilt from the current restart snapshot xu/yu/zu coordinates; temporary transform in fff, final relaxation in ppp cubic box)"
 
 change_box      all boundary f f f x final ${xlo_tmp} ${xhi_tmp} y final ${ylo_tmp} ${yhi_tmp} z final ${zlo_tmp} ${zhi_tmp} units box
 
@@ -220,15 +214,24 @@ displace_atoms  all rotate ${x_head0} ${y_head0} ${z_head0} ${rotax} ${rotay} ${
 
 run             0
 
-variable        x_head_rot equal xcm(head,x)
-variable        y_head_rot equal xcm(head,y)
-variable        z_head_rot equal xcm(head,z)
-variable        x_target equal ${x_head_margin}
+variable        xmin_rot equal c_xmin
+variable        xmax_rot equal c_xmax
+variable        ymin_rot equal c_ymin
+variable        ymax_rot equal c_ymax
+variable        zmin_rot equal c_zmin
+variable        zmax_rot equal c_zmax
+variable        xmid_rot equal 0.5*(v_xmin_rot+v_xmax_rot)
+variable        ymid_rot equal 0.5*(v_ymin_rot+v_ymax_rot)
+variable        zmid_rot equal 0.5*(v_zmin_rot+v_zmax_rot)
+variable        x_target equal 0.5*${Lx_box}
 variable        y_target equal 0.5*${Ly_box}
 variable        z_target equal 0.5*${Lz_box}
-variable        shiftx equal v_x_target-v_x_head_rot
-variable        shifty equal v_y_target-v_y_head_rot
-variable        shiftz equal v_z_target-v_z_head_rot
+variable        shiftx equal v_x_target-v_xmid_rot
+variable        shifty equal v_y_target-v_ymid_rot
+variable        shiftz equal v_z_target-v_zmid_rot
+
+print           "RELAX SETUP: rotated bounds = x[${xmin_rot}, ${xmax_rot}] y[${ymin_rot}, ${ymax_rot}] z[${zmin_rot}, ${zmax_rot}]"
+print           "RELAX SETUP: cluster midpoint before centering = (${xmid_rot}, ${ymid_rot}, ${zmid_rot})"
 
 displace_atoms  all move ${shiftx} ${shifty} ${shiftz} units box
 
@@ -243,7 +246,7 @@ variable        zmax_pre equal c_zmax
 
 print           "ALIGNED-BOX SETUP: pre-box bounds = x[${xmin_pre}, ${xmax_pre}] y[${ymin_pre}, ${ymax_pre}] z[${zmin_pre}, ${zmax_pre}]"
 
-change_box      all boundary f f f x final 0 ${Lx_box} y final 0 ${Ly_box} z final 0 ${Lz_box} units box
+change_box      all boundary p p p x final 0 ${Lx_box} y final 0 ${Ly_box} z final 0 ${Lz_box} units box
 
 run             0
 
@@ -260,75 +263,53 @@ variable        y_margin_upper equal ${Ly_box}-v_ymax_post
 variable        z_margin_lower equal v_zmin_post
 variable        z_margin_upper equal ${Lz_box}-v_zmax_post
 
-print           "ALIGNED-BOX SETUP: final box = x[0, ${Lx_box}] y[0, ${Ly_box}] z[0, ${Lz_box}]"
+print           "ALIGNED-BOX SETUP: final periodic box = x[0, ${Lx_box}] y[0, ${Ly_box}] z[0, ${Lz_box}]"
 print           "ALIGNED-BOX SETUP: post-box bounds = x[${xmin_post}, ${xmax_post}] y[${ymin_post}, ${ymax_post}] z[${zmin_post}, ${zmax_post}]"
 print           "ALIGNED-BOX SETUP: margins left/right = (${x_margin_left}, ${x_margin_right}), y lower/upper = (${y_margin_lower}, ${y_margin_upper}), z lower/upper = (${z_margin_lower}, ${z_margin_upper})"
 
-variable        Fx_ext equal ${force_mag}
-variable        Fy_ext equal 0.0
-variable        Fz_ext equal 0.0
-variable        run_steps equal ceil(${run_time}/${ts})
+variable        run_steps equal ceil(${relax_time}/${ts})
 if "${dry_run} == yes" then "variable run_steps delete"
 if "${dry_run} == yes" then "variable run_steps equal 0"
 
-velocity        head set 0.0 0.0 0.0 units box
-velocity        tail set 0.0 0.0 0.0 units box
-
-fix             freeze_head head setforce 0.0 0.0 0.0
 fix             thermostat_lc rigid_lc rigid/nvt/small molecule temp ${target_T} ${target_T} ${Tdamp}
 fix             thermostat_sph sphere_thermo nvt temp ${target_T} ${target_T} ${Tdamp} tchain ${Tchain}
 fix_modify      thermostat_sph temp T_sph
-fix             integrate_tail tail nve
-fix             store_chain_force tail store/force
-fix             constant_load tail addforce ${Fx_ext} ${Fy_ext} ${Fz_ext}
-
-compute         tail_chain_force tail reduce sum f_store_chain_force[1] f_store_chain_force[2] f_store_chain_force[3]
-compute         tail_total_force tail reduce sum fx fy fz
 
 variable        x_head equal xcm(head,x)
 variable        x_tail equal xcm(tail,x)
-variable        vx_tail equal vcm(tail,x)
 variable        Lproj equal v_x_tail-v_x_head
-variable        dL equal v_Lproj-v_L_init
-variable        strain equal v_dL/(v_L_contour-v_L_init)
+variable        y_head equal xcm(head,y)
+variable        y_tail equal xcm(tail,y)
+variable        z_head equal xcm(head,z)
+variable        z_tail equal xcm(tail,z)
+variable        dx_ht equal v_x_tail-v_x_head
+variable        dy_ht equal v_y_tail-v_y_head
+variable        dz_ht equal v_z_tail-v_z_head
+variable        Ree equal sqrt(v_dx_ht*v_dx_ht+v_dy_ht*v_dy_ht+v_dz_ht*v_dz_ht)
 variable        contour_fraction equal v_Lproj/v_L_contour
-
-variable        Fx_chain equal c_tail_chain_force[1]
-variable        Fy_chain equal c_tail_chain_force[2]
-variable        Fz_chain equal c_tail_chain_force[3]
-variable        Fchain equal -v_Fx_chain
-variable        Fx_total equal c_tail_total_force[1]
-variable        Fy_total equal c_tail_total_force[2]
-variable        Fz_total equal c_tail_total_force[3]
-variable        Ftotal equal -v_Fx_total
-variable        fx_total_tail equal v_Fx_total
-variable        fx_chain_tail equal v_Fx_chain
 
 variable        step_now equal step
 variable        sim_time equal time
 
 thermo          ${sample_every}
-thermo_style    custom step temp v_T_mix c_T_sph v_T_ell c_T_tail v_dof_sph v_dof_ell v_dof_mix v_dof_tail v_Lproj v_dL v_strain v_contour_fraction v_Fchain v_Ftotal press pe ke etotal
+thermo_style    custom step temp v_T_mix c_T_sph v_T_ell c_T_tail v_dof_sph v_dof_ell v_dof_mix v_dof_tail v_Lproj v_Ree v_contour_fraction press pe ke etotal
 thermo_modify   flush yes lost warn
 
-dump            traj_force_clamp all custom ${dump_every} ${output_root}/traj.force_clamp_aligned.*.dump id type xu yu zu vx vy vz fx fy fz c_orient[1] c_orient[2] c_orient[3] c_orient[4] c_shape[1] c_shape[2] c_shape[3] mass
-dump_modify     traj_force_clamp colname c_orient[1] quatw colname c_orient[2] quati colname c_orient[3] quatj colname c_orient[4] quatk
-dump_modify     traj_force_clamp colname c_shape[1] shapex colname c_shape[2] shapey colname c_shape[3] shapez
+dump            traj_relax all custom ${dump_every} ${output_root}/traj.relaxation.*.dump id type xu yu zu vx vy vz fx fy fz c_orient[1] c_orient[2] c_orient[3] c_orient[4] c_shape[1] c_shape[2] c_shape[3] mass
+dump_modify     traj_relax colname c_orient[1] quatw colname c_orient[2] quati colname c_orient[3] quatj colname c_orient[4] quatk
+dump_modify     traj_relax colname c_shape[1] shapex colname c_shape[2] shapey colname c_shape[3] shapez
 
-restart         ${restart_every} ${output_root}/Restart.force_clamp_aligned.*
+restart         ${restart_every} ${output_root}/Restart.relaxation.*
 
-fix             out all print ${sample_every} "${step_now} ${sim_time} ${Lproj} ${dL} ${strain} ${contour_fraction} ${force_mag} ${Fchain} ${Ftotal} ${x_tail} ${vx_tail} ${fx_total_tail} ${fx_chain_tail}" file ${output_root}/force_clamp_response.dat screen no title "# step time L dL strain contour_fraction Fext Fchain Ftotal x_tail vx_tail fx_total_tail fx_chain_tail"
+fix             out all print ${sample_every} "${step_now} ${sim_time} ${Lproj} ${Ree} ${contour_fraction} ${x_head} ${x_tail} ${y_head} ${y_tail} ${z_head} ${z_tail}" file ${output_root}/relaxation_state.dat screen no title "# step time Lproj Ree contour_fraction x_head x_tail y_head y_tail z_head z_tail"
 
-print           "ALIGNED-BOX SETUP: applied external force = (${Fx_ext}, ${Fy_ext}, ${Fz_ext}), run_time = ${run_time}, run_steps = ${run_steps}, dry_run = ${dry_run}"
+print           "RELAX SETUP: free relaxation with no frozen atoms and no external load, relax_time = ${relax_time}, run_steps = ${run_steps}, dry_run = ${dry_run}"
 
 run             ${run_steps}
 
-write_restart   ${output_root}/Final.force_clamp_aligned.bin
+write_restart   ${output_root}/Final.relaxation.bin
 unfix           out
-undump          traj_force_clamp
-unfix           constant_load
-unfix           store_chain_force
-unfix           integrate_tail
+undump          traj_relax
 unfix           thermostat_lc
 unfix           thermostat_sph
-unfix           freeze_head
+unfix           snapshot_u

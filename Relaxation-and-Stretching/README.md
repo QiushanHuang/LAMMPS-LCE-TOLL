@@ -17,12 +17,13 @@ File names now encode the main distinguishing parameters directly:
 - `helpers/build_output_root.py`: generates `output_root` names
 - `relaxation/in.restart_relaxation_fff_T050_box200_xuyu-zu.lmp`: baseline `fff`, `T*=0.50`, cubic `box_length=200`
 - `relaxation/in.restart_relaxation_fff_T080_box400_xuyu-zu.lmp`: `fff`, `T*=0.80`, cubic `box_length=400`
-- `relaxation/in.restart_relaxation_ppp_T050_box200_xuyu-zu.lmp`: `ppp`, `T*=0.50`, cubic `box_length=200`
-- `relaxation/in.restart_relaxation_ppp_T070_box300_xuyu-zu.lmp`: `ppp`, `T*=0.70`, cubic `box_length=300`
-- `relaxation/in.restart_relaxation_ppp_T080_box300_xuyu-zu.lmp`: `ppp`, `T*=0.80`, cubic `box_length=300`
+- `relaxation/in.restart_relaxation_ppp_T040_box200_xuyu-zu.lmp` ... `relaxation/in.restart_relaxation_ppp_T100_box200_xuyu-zu.lmp`: `ppp` temperature grid at `T*=0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 1.00`, all with cubic `box_length=200`
+- `stretching/in.single_chain_constant_force_aligned_box-F5.00-T050-margin50-xuyu-zu.lmp`: standard `F=5`, `T*=0.50`, `x_head_margin=50`
+- `stretching/in.single_chain_constant_force_aligned_box-F5.00-T050-margin80-xuyu-zu.lmp`: standard `F=5`, `T*=0.50`, `x_head_margin=80`
+- `stretching/in.single_chain_constant_force_aligned_box-F10.00-T050-margin80-xuyu-zu.lmp`: standard `F=10`, `T*=0.50`, `x_head_margin=80`
 - `stretching/in.single_chain_constant_force_aligned_box-F10.00-T080-margin60-tail_v0_no_thermal-xuyu-zu.lmp`: force-clamp stretching, `F=10`, `T*=0.80`, `x_head_margin=60`
 - `stretching/in.single_chain_constant_force_aligned_box-F20.00-T050-margin150-tail_v0_no_thermal-xuyu-zu.lmp`: force-clamp stretching, `F=20`, `T*=0.50`, `x_head_margin=150`, tail velocity zeroed before loading
-- `stretching/in.single_chain_constant_force_aligned_box-F20.00-T080-margin60-xuyu-zu.lmp`: force-clamp stretching, `F=20`, `T*=0.80`, `x_head_margin=60`
+- `stretching/in.single_chain_constant_force_aligned_box-F20.00-T040-margin100-xuyu-zu.lmp` ... `stretching/in.single_chain_constant_force_aligned_box-F20.00-T100-margin100-xuyu-zu.lmp`: standard `F=20` temperature grid at `T*=0.40, 0.45, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 1.00`, all with `x_head_margin=100`
 
 ## Endpoint Selection
 
@@ -66,7 +67,7 @@ What it does:
 - shrinks to the final cubic box
 - runs free relaxation
 
-For the `ppp` variants, only the **final** relaxation box is periodic; the transform stage remains nonperiodic to avoid premature wrapping during rotation and translation.
+For the `ppp` variants, only the **final** relaxation box is periodic; the transform stage remains nonperiodic to avoid premature wrapping during rotation and translation. All packaged `ppp` variants in this directory now use `box_length=200`.
 
 ### 2. Feed the relaxed restart into stretching
 
@@ -75,12 +76,13 @@ Choose a relaxation restart or `Final.relaxation.bin`, then update the stretchin
 - set `restart_file`
 - keep `target_T` consistent if that is part of your protocol
 - keep `head_id_override` and `tail_id_override` consistent
+- packaged stretching defaults currently use `restart_file = Restart.relaxation.860000` and `run_time = 5000`
 
 Then run, for example:
 
 ```bash
 cd ../stretching
-mpirun -np 4 lmp_mpi -in in.single_chain_constant_force_aligned_box-F20.00-T050-margin150-tail_v0_no_thermal-xuyu-zu.lmp
+mpirun -np 4 lmp_mpi -in in.single_chain_constant_force_aligned_box-F20.00-T080-margin100-xuyu-zu.lmp
 ```
 
 ## Input / Output Naming
@@ -138,7 +140,7 @@ Stretching outputs:
 ## Important Notes
 
 - These scripts dump `xu yu zu`, but frame 0 in OVITO is the **post-transform** geometry, not the raw restart geometry.
-- The helper path is relative. Run scripts from inside their own `relaxation/` or `stretching/` directory unless you intentionally want outputs in a different working directory.
+- The packaged scripts can be invoked via absolute `.lmp` paths from another working directory. `restart_file` and `output_base` are still interpreted relative to the directory where you launch LAMMPS. The packaged default `helper_root` points to this local clone at `/Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/helpers`; if you move the repo, update `helper_root` or override it with `-var helper_root /new/path/to/helpers`.
 - The `ppp` relaxation variants can have noticeably different thermodynamics from `fff`. Re-check `box_length` after switching boundary conditions.
 - The warning `Temperature for fix modify is not for group all` comes from `fix_modify thermostat_sph temp T_sph`. It is expected in this workflow.
 - The relaxation scripts compute `restart_every` from `dump_every`; the stretching scripts use a fixed `restart_every index 50000`.

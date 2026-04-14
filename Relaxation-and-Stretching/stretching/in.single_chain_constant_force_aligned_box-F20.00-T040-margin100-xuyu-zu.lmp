@@ -1,5 +1,5 @@
 # Single-chain constant-force pulling in an aligned slender box.
-# Profile: F=10, T*=0.80, x_head_margin=60, x_length_factor=1.2, protocol=tail_v0_no_thermal_xuyu_zu
+# Profile: F=20, T*=0.40, x_head_margin=100, x_length_factor=1.2, protocol=force_clamp_aligned_xuyu_zu
 # Geometry protocol:
 # - read an equilibrated restart
 # - expand to a temporary nonperiodic transform box
@@ -8,19 +8,14 @@
 # - translate the head to (x_head_margin, Ly_box/2, Lz_box/2)
 # - shrink to the final nonperiodic orthogonal box
 # - apply a constant force only along +x to the tail particle
-# Protocol tag:
-# - tail_v0_no_thermal_xuyu_zu
-# - this variant explicitly zeros the tail particle velocity before loading
-# - use it to reduce interference from the tail's inherited thermal velocity
-# - and resolves geometry transforms from stored unwrapped restart coordinates
 
 variable        restart_file index Restart.relaxation.860000
 variable        helper_root index /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/helpers
 variable        output_base index .
 variable        output_root_file index ./.output_root.txt
-variable        protocol_tag index tail_v0_no_thermal_xuyu_zu
+variable        protocol_tag index xuyu_zu
 
-variable        target_T     index 0.80
+variable        target_T     index 0.40
 variable        ts           index 0.001
 variable        Tdamp        index 0.1
 variable        Tchain       index 3
@@ -29,12 +24,12 @@ variable        dry_run      index no
 variable        head_id_override index auto
 variable        tail_id_override index auto
 
-variable        force_mag    index 10
+variable        force_mag    index 20
 variable        run_time     index 5000
 
 # Slender aligned box controls.
 variable        x_length_factor index 1.2
-variable        x_head_margin   index 60
+variable        x_head_margin   index 100
 variable        Ly_box          index $(2*v_x_head_margin)
 variable        Lz_box          index $(2*v_x_head_margin)
 
@@ -182,7 +177,7 @@ print           "ALIGNED-BOX SETUP: contour length = ${L_contour}, Lx_box = ${Lx
 print           "ALIGNED-BOX SETUP: temporary transform box = x[${xlo_tmp}, ${xhi_tmp}] y[${ylo_tmp}, ${yhi_tmp}] z[${zlo_tmp}, ${zhi_tmp}]"
 print           "TEMP CHECK: T_sph uses sphere_thermo translational KE only; T_ell uses ellipsoid KE with 5 DOF per E; tail temperature is reported separately"
 print           "TEMP FORMULA: T_mix = (dof_sph*T_sph + dof_ell*T_ell)/(dof_sph + dof_ell), with dof_sph=$(v_dof_sph), dof_ell=$(v_dof_ell), dof_mix=$(v_dof_mix), dof_tail=$(v_dof_tail)"
-print           "PROTOCOL TAG: ${protocol_tag} (tail initial velocity zeroed; geometry transform rebuilt from the current restart snapshot xu/yu/zu coordinates)"
+print           "PROTOCOL TAG: ${protocol_tag} (geometry transform rebuilt from the current restart snapshot xu/yu/zu coordinates)"
 
 change_box      all boundary f f f x final ${xlo_tmp} ${xhi_tmp} y final ${ylo_tmp} ${yhi_tmp} z final ${zlo_tmp} ${zhi_tmp} units box
 
@@ -272,7 +267,6 @@ if "${dry_run} == yes" then "variable run_steps delete"
 if "${dry_run} == yes" then "variable run_steps equal 0"
 
 velocity        head set 0.0 0.0 0.0 units box
-velocity        tail set 0.0 0.0 0.0 units box
 
 fix             freeze_head head setforce 0.0 0.0 0.0
 fix             thermostat_lc rigid_lc rigid/nvt/small molecule temp ${target_T} ${target_T} ${Tdamp}

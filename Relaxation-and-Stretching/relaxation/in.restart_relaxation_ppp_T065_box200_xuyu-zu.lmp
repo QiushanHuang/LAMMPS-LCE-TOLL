@@ -1,5 +1,5 @@
 # Restart-based free relaxation in an enlarged periodic cubic box.
-# Profile: boundary=ppp, T*=0.80, cubic box_length=300, protocol=relaxation_ppp_xuyu_zu
+# Profile: boundary=ppp, T*=0.65, cubic box_length=200, protocol=relaxation_ppp_xuyu_zu
 # Geometry protocol:
 # - read an equilibrated restart
 # - expand to a temporary nonperiodic transform box
@@ -10,12 +10,12 @@
 # - run free thermal relaxation with no frozen atoms and no external load in ppp
 
 variable        restart_file index Restart.GB.rho030.500000
-variable        helper_root index ../helpers
+variable        helper_root index /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/helpers
 variable        output_base index .
 variable        output_root_file index ./.output_root.txt
 variable        protocol_tag index relaxation_ppp_xuyu_zu
 
-variable        target_T     index 0.80
+variable        target_T     index 0.65
 variable        ts           index 0.001
 variable        Tdamp        index 0.1
 variable        Tchain       index 3
@@ -25,10 +25,10 @@ variable        head_id_override index auto
 variable        tail_id_override index auto
 
 variable        force_mag    index 20
-variable        relax_time   index 4000
+variable        relax_time   index 1000
 
 # Cubic relaxation box controls.
-variable        box_length    index 300
+variable        box_length    index 200
 variable        transform_pad equal ${box_length}
 variable        Lx_box        equal ${box_length}
 variable        Ly_box        equal ${box_length}
