@@ -6,7 +6,7 @@ This directory contains Python scripts for mass-weighted radius-of-gyration (`Rg
 
 Use:
 
-- `compute_rg_all_tstar_unwrap_v4.py`
+- `compute_rg_all_tstar_unwrap_v5.py`
 
 This version:
 
@@ -28,7 +28,7 @@ The script writes:
 Figure behavior:
 
 - Figure 1: original `Rg` curves
-- Figure 2: original `Rg` curves with SG-smoothed curves overlaid
+- Figure 2: original `Rg` curves as a faint background with SG-smoothed curves overlaid as dashed lines
 - Figure 3: mean `Rg` from the last `N` points for each `Tstar`, with error bars from the tail-window standard deviation
 - Combined figure: all three views stacked in one matplotlib window and one PNG
 
@@ -38,13 +38,13 @@ Run from the dump directory:
 
 ```bash
 cd /path/to/dump-directory
-python /path/to/LAMMPS-LCE-TOLL/Figure-Analyze/Radius-of-Gyration/compute_rg_all_tstar_unwrap_v4.py --show
+python /path/to/LAMMPS-LCE-TOLL/Figure-Analyze/Radius-of-Gyration/compute_rg_all_tstar_unwrap_v5.py --show
 ```
 
 Or specify an explicit root:
 
 ```bash
-python /path/to/LAMMPS-LCE-TOLL/Figure-Analyze/Radius-of-Gyration/compute_rg_all_tstar_unwrap_v4.py \
+python /path/to/LAMMPS-LCE-TOLL/Figure-Analyze/Radius-of-Gyration/compute_rg_all_tstar_unwrap_v5.py \
   --root-dir /path/to/data \
   --out-dir Rg_results \
   --show

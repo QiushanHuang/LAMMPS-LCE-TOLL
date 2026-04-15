@@ -11,7 +11,7 @@ This repository collects LAMMPS workflows and post-processing utilities for LCE-
 
 The latest radius-of-gyration analysis entry point is:
 
-- `Figure-Analyze/Radius-of-Gyration/compute_rg_all_tstar_unwrap_v4.py`
+- `Figure-Analyze/Radius-of-Gyration/compute_rg_all_tstar_unwrap_v5.py`
 
 That script:
 
@@ -19,5 +19,6 @@ That script:
 - can be launched from the directory that contains the target dumps
 - supports both `Tstar_*` grouped layouts and direct-current-directory dump processing
 - exports raw and smoothed `Rg` plots plus a tail-averaged `Rg` vs `T*` figure
+- draws Figure 2 as a raw-curve background with a visually distinct SG overlay
 
 See `Figure-Analyze/Radius-of-Gyration/README.md` for usage details.
