@@ -27,6 +27,8 @@ File names now encode the main distinguishing parameters directly:
 - `stretching/in.single_chain_constant_force_aligned_box-F10.00-T080-margin60-tail_v0_no_thermal-xuyu-zu.lmp`: force-clamp stretching, `F=10`, `T*=0.80`, `x_head_margin=60`
 - `stretching/in.single_chain_constant_force_aligned_box-F20.00-T050-margin150-tail_v0_no_thermal-xuyu-zu.lmp`: force-clamp stretching, `F=20`, `T*=0.50`, `x_head_margin=150`, tail velocity zeroed before loading
 - `stretching/in.single_chain_constant_force_aligned_box-F20.00-T040-margin100-xuyu-zu.lmp` ... `stretching/in.single_chain_constant_force_aligned_box-F20.00-T100-margin100-xuyu-zu.lmp`: standard `F=20` temperature grid at `T*=0.40, 0.45, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 1.00`, all with `x_head_margin=100`
+- `stretching/run_all_lammps_tmux_linux.py`: Linux/tmux batch launcher for the packaged stretching inputs; it discovers `.lmp` files in `stretching/`, but runs them from your current working directory so restart paths and output directories stay local to the run directory
+- `stretching/short_benchmark_lammps.py`: short benchmark runner for one specified stretching `.lmp`; it sweeps an MPI × OMP grid, overrides runtime/output intervals via `-var`, and writes a CSV summary under a dedicated benchmark directory
 
 ## Endpoint Selection
 
@@ -140,7 +142,144 @@ cd /path/to/working-directory
   -in /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/stretching/in.single_chain_constant_force_aligned_box-F20.00-T080-margin100-xuyu-zu.lmp
 ```
 
+### Batch Launch Template
+
+If you want one detached tmux session per packaged stretching script, stay in the working directory that contains your relaxed restart and run:
+
+```bash
+cd /path/to/working-directory
+python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/stretching/run_all_lammps_tmux_linux.py
+```
+
+What the launcher does:
+
+- discovers `.lmp` files in `/Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/stretching`
+- keeps your current directory as the runtime working directory
+- computes the same `output_root` that the LAMMPS script will generate
+- creates `launch_in_tmux.sh`, `command.txt`, and `tmux.log` inside each `output_root`
+- starts one detached tmux session per job
+
+Useful options:
+
+```bash
+python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/stretching/run_all_lammps_tmux_linux.py \
+  --dry-run \
+  --mpi-ranks 4 \
+  --omp-threads 2 \
+  --restart-file Restart.relaxation.920000
+```
+
+- `--dry-run`: print the launch plan without requiring `tmux`, `mpiexec`, or `lmp`
+- `--restart-file`: override `restart_file` for every discovered stretching script
+- `--workdir`: run against a directory other than the current one
+- `--pattern`: restrict discovery to a subset such as `in.single_chain_constant_force_aligned_box-F20*.lmp`
+- `--rerun-existing-output`: allow launching a job even if its `output_root` already exists
+- `--reuse-session-names`: append a numeric suffix instead of skipping when the default tmux session name already exists
+
+Important constraint:
+
+- the launcher rejects two scripts that resolve to the same `output_root`
+- in practice this happens when two scripts differ in filename but share the same `restart_file`, `target_T`, `force_mag`, and `protocol_tag`
+- if you want both scripts in the same batch, give them distinct `protocol_tag` values or launch them separately
+
+### Short Benchmark Template
+
+If you want to benchmark one specific stretching input with a very short run, stay in the working directory that contains the restart file and run:
+
+```bash
+cd /path/to/working-directory
+python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/stretching/short_benchmark_lammps.py \
+  --input /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/stretching/in.single_chain_constant_force_aligned_box-F20.00-T080-margin100-xuyu-zu.lmp
+```
+
+Default benchmark behavior:
+
+- benchmarks exactly one `.lmp`
+- sweeps `MPI ranks = 1..6` and `OMP threads = 1..6`
+- overrides `run_time` to a short value (`0.2` by default)
+- overrides `sample_every`, `dump_every`, and `restart_every` to very large values so I/O does not dominate the timing
+- writes results to `short_benchmark_<input-stem>/`
+- writes one subdirectory per `(mpi, omp)` pair plus `benchmark_results.csv`
+
+Useful options:
+
+```bash
+python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/stretching/short_benchmark_lammps.py \
+  --input /path/to/in.single_chain_constant_force_aligned_box-F20.00-T080-margin100-xuyu-zu.lmp \
+  --dry-run \
+  --mpi-min 1 --mpi-max 6 \
+  --omp-min 1 --omp-max 6 \
+  --run-time 0.05 \
+  --restart-file Restart.relaxation.860000
+```
+
+- `--dry-run`: print all benchmark commands without running LAMMPS
+- `--run-time`: set the short test duration in LJ time units
+- `--mpi-min/--mpi-max`, `--omp-min/--omp-max`: define the benchmark matrix
+- `--restart-file`: override the restart used by the selected `.lmp`
+- `--sample-every`, `--dump-every`, `--restart-every`: adjust output suppression if you want a more realistic but noisier timing
+- `--mpiexec`, `--lammps-bin`: override the server defaults when testing on a different machine
+
+### Server Deployment Layout
+
+If the goal is "upload a small folder set to Linux and then batch-launch from the run directory", the minimum layout is:
+
+```text
+Relaxation-and-Stretching/
+├── helpers/
+│   └── build_output_root.py
+└── stretching/
+    ├── run_all_lammps_tmux_linux.py
+    └── in.single_chain_constant_force_aligned_box-*.lmp
+```
+
+If you also want packaged relaxation and analysis on the server, upload the whole `Relaxation-and-Stretching/` directory. For stretching-only batch jobs, `helpers/` + `stretching/` is sufficient.
+
+Recommended server workflow:
+
+1. copy `Relaxation-and-Stretching/helpers` and `Relaxation-and-Stretching/stretching` to the server without changing their relative positions
+2. `cd` into the directory that contains `Restart.relaxation.860000` or your chosen restart file
+3. run:
+
+```bash
+python /path/to/Relaxation-and-Stretching/stretching/run_all_lammps_tmux_linux.py --dry-run
+python /path/to/Relaxation-and-Stretching/stretching/run_all_lammps_tmux_linux.py
+```
+
+The batch launcher now always passes these values explicitly to LAMMPS:
+
+- `-var helper_root /path/to/Relaxation-and-Stretching/helpers`
+- `-var output_base <your current working directory>`
+
+That is the reason this script is more reliable than calling the `.lmp` files by hand on a new machine: it removes the ambiguity around local absolute paths and current working directory.
+
+### Why Helper Paths Seemed Confusing
+
+There are two different path-resolution rules in play:
+
+- Python scripts usually resolve helper paths relative to `__file__`
+- LAMMPS `shell` / `include` commands resolve paths relative to the LAMMPS process working directory unless you pass explicit absolute paths or `-var` overrides
+
+So if a `.lmp` file contains a local Mac path such as `/Users/.../helpers`, or a relative helper path that only worked from one directory, moving the script to another machine breaks it immediately.
+
+The packaged batch launcher avoids that by discovering the helper folder from its own location and then injecting it into each LAMMPS job with `-var helper_root ...`. On Linux the default LAMMPS executable in the launcher is:
+
+```text
+/home/hkust/mylammps/build/lmp
+```
+
+Override it only if the server uses a different binary:
+
+```bash
+python /path/to/Relaxation-and-Stretching/stretching/run_all_lammps_tmux_linux.py \
+  --lammps-bin /some/other/lmp
+```
+
 ## Analysis Scripts
+
+For the packaged analysis tool group, including the new central-cache `rg_T_*` workflow, batch processing, and `Rg`-vs-`F` comparison commands, see:
+
+- `Relaxation-and-Stretching/analysis/README.md`
 
 ### Script Relationship
 

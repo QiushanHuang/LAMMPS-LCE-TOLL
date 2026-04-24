@@ -24,7 +24,7 @@ variable        dry_run      index no
 variable        head_id_override index auto
 variable        tail_id_override index auto
 
-variable        force_mag    index 5
+variable        force_mag    index 2
 variable        run_time     index 12000
 
 # Slender aligned box controls.
