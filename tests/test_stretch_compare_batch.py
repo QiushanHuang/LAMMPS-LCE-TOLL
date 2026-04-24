@@ -25,13 +25,13 @@ def load_module(module_name: str, relative_path: str):
     return module
 
 
-rg_t = load_module(
-    "rg_T_analyze_force_clamp_aligned_box",
-    "Relaxation-and-Stretching/analysis/rg_T_analyze_force_clamp_aligned_box.py",
+stretch_single = load_module(
+    "analyze_stretch_single",
+    "Relaxation-and-Stretching/analysis/analyze_stretch_single.py",
 )
 compare_batch = load_module(
-    "compare_batch_rg_T",
-    "Relaxation-and-Stretching/analysis/compare_batch_rg_T.py",
+    "compare_stretch_batch",
+    "Relaxation-and-Stretching/analysis/compare_stretch_batch.py",
 )
 
 
@@ -44,10 +44,10 @@ class CompareBatchTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            self.assertFalse(rg_t.stretch_dataset_schema_matches(dataset_path))
+            self.assertFalse(stretch_single.stretch_dataset_schema_matches(dataset_path))
 
     def test_compute_mass_weighted_rg_components_reports_total_and_x_projection(self) -> None:
-        metrics = rg_t.compute_mass_weighted_rg_components(
+        metrics = stretch_single.compute_mass_weighted_rg_components(
             positions=[
                 (0.0, 0.0, 0.0),
                 (2.0, 0.0, 0.0),

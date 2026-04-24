@@ -43,7 +43,7 @@ SUPPORTED_COLUMN_LAYOUTS = {
 
 DEFAULT_DATA_FILENAME = "force_clamp_response.dat"
 DUMP_GLOB = "traj.force_clamp_aligned.*.dump"
-PLOT_FILE_PREFIX = "rg_T_"
+PLOT_FILE_PREFIX = "stretch_"
 ANALYSIS_CACHE_DIRNAME = "0_stretch_analysis"
 WAIT_LIST_DIRNAME = "wait-list-file"
 STRETCH_DATASET_PREFIX = "stretch_dataset_"
@@ -1813,7 +1813,7 @@ def parse_args(default_trend_method: str = "loess", default_sg_window: int = 31)
 
 def main(
     default_trend_method: str = "loess",
-    default_output_dir_name: str = "analysis_rg_T",
+    default_output_dir_name: str = "analysis_stretch",
     default_sg_window: int = 31,
 ) -> None:
     args = parse_args(default_trend_method=default_trend_method, default_sg_window=default_sg_window)

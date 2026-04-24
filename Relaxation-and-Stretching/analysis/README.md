@@ -6,12 +6,9 @@ Contributor:
 
 - Qiushan Huang (GitHub: `QiushanHuang`)
 
-It contains two analysis families:
+It now keeps the current analysis workflow at the top level and older scripts under `backup/`.
 
-- legacy `analyze_force_clamp_aligned_box*.py`
-- new `rg_T_*` and batch comparison tools
-
-The new `rg_T_*` tools are the ones to use when you want:
+Use the top-level `analyze_stretch_*` and `compare_stretch_batch.py` tools when you want:
 
 - cached dump-derived `Rg` data
 - batch processing over many `output_*` folders
@@ -22,31 +19,31 @@ The new `rg_T_*` tools are the ones to use when you want:
 
 ## File Map
 
-### Legacy single-output analyzers
+### Current Scripts
 
-- `analyze_force_clamp_aligned_box.py`
-  - original single-directory analyzer
-- `analyze_force_clamp_aligned_box_loess.py`
-  - legacy LOESS wrapper
-- `analyze_force_clamp_aligned_box_savgol.py`
-  - legacy Savitzky-Golay wrapper
-
-### New single-output and batch analyzers
-
-- `rg_T_analyze_force_clamp_aligned_box.py`
-  - new single-output analyzer
+- `analyze_stretch_single.py`
+  - single-output analyzer
   - builds or reuses a central cached dataset
   - computes dump-derived `Rg`, `Rg_x`, and `Lx`
-- `rg_T_analyze_force_clamp_aligned_box_loess.py`
-  - new LOESS wrapper for the `rg_T` single-output analyzer
-- `rg_T_analyze_force_clamp_aligned_box_savgol.py`
-  - new Savitzky-Golay wrapper for the `rg_T` single-output analyzer
-- `batch_rg_T_analyze.py`
-  - runs the new `rg_T` single-output analyzer over every `output_*` folder under one root
-- `compare_batch_rg_T.py`
+- `analyze_stretch_single_loess.py`
+  - LOESS wrapper for the single-output analyzer
+- `analyze_stretch_single_savgol.py`
+  - Savitzky-Golay wrapper for the single-output analyzer
+- `analyze_stretch_batch.py`
+  - runs the single-output analyzer over every `output_*` folder under one root
+- `compare_stretch_batch.py`
   - builds/reuses all cached datasets under one root
   - generates the batch comparison figures
   - this is the main script for analyzing chain `Rg` and `F` relationships
+
+### Backup Scripts
+
+- `backup/legacy_force_clamp/analyze_force_clamp_aligned_box.py`
+  - original force-clamp-only single-output analyzer
+- `backup/legacy_force_clamp/analyze_force_clamp_aligned_box_loess.py`
+  - original LOESS wrapper
+- `backup/legacy_force_clamp/analyze_force_clamp_aligned_box_savgol.py`
+  - original Savitzky-Golay wrapper
 
 ---
 
@@ -59,8 +56,8 @@ When you analyze a root directory that contains many `output_*` folders, the new
 ├── output_*/
 └── 0_stretch_analysis/
     ├── stretch_dataset_*.dat
-    ├── rg_T_batch_compare.png
-    ├── rg_T_batch_compare_force_window.png
+    ├── stretch_batch_compare.png
+    ├── stretch_batch_compare_force_window.png
     └── wait-list-file/
 ```
 
@@ -117,26 +114,26 @@ If you are already inside one `output_*` directory, run:
 
 ```bash
 cd /path/to/output_...
-python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/rg_T_analyze_force_clamp_aligned_box.py --jobs 4
+python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/analyze_stretch_single.py --jobs 4
 ```
 
 This does two things:
 
 - creates or reuses the cached dataset in the sibling `0_stretch_analysis/`
-- writes per-output figures into `analysis_rg_T/`
+- writes per-output figures into `analysis_stretch/`
 
 To open the interactive figures:
 
 ```bash
 cd /path/to/output_...
-python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/rg_T_analyze_force_clamp_aligned_box.py --jobs 4 --show
+python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/analyze_stretch_single.py --jobs 4 --show
 ```
 
 Shortcuts:
 
 ```bash
-python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/rg_T_analyze_force_clamp_aligned_box_loess.py --jobs 4
-python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/rg_T_analyze_force_clamp_aligned_box_savgol.py --jobs 4
+python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/analyze_stretch_single_loess.py --jobs 4
+python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/analyze_stretch_single_savgol.py --jobs 4
 ```
 
 ---
@@ -146,7 +143,7 @@ python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analys
 If a root directory contains many `output_*` folders, run:
 
 ```bash
-python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/batch_rg_T_analyze.py \
+python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/analyze_stretch_batch.py \
   --root /path/to/root \
   --jobs 4 \
   --analysis-jobs 1
@@ -162,7 +159,7 @@ Meaning:
 If you also want interactive windows, use:
 
 ```bash
-python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/batch_rg_T_analyze.py \
+python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/analyze_stretch_batch.py \
   --root /path/to/root \
   --show \
   --analysis-jobs 4
@@ -179,7 +176,7 @@ This is the main workflow for comparing chain response across force.
 Run:
 
 ```bash
-python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/compare_batch_rg_T.py \
+python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/compare_stretch_batch.py \
   --root /path/to/root \
   --jobs 4 \
   --analysis-jobs 1
@@ -199,7 +196,7 @@ This script:
 
 Saved as:
 
-- `0_stretch_analysis/rg_T_batch_compare.png`
+- `0_stretch_analysis/stretch_batch_compare.png`
 
 It contains 4 panels:
 
@@ -212,7 +209,7 @@ It contains 4 panels:
 
 Saved as:
 
-- `0_stretch_analysis/rg_T_batch_compare_force_window.png`
+- `0_stretch_analysis/stretch_batch_compare_force_window.png`
 
 It contains 4 panels:
 
@@ -240,7 +237,7 @@ Error bars:
 To change the window size:
 
 ```bash
-python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/compare_batch_rg_T.py \
+python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/compare_stretch_batch.py \
   --root /path/to/root \
   --window-points 1000
 ```
@@ -250,7 +247,7 @@ python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analys
 To show both canvases:
 
 ```bash
-python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/compare_batch_rg_T.py \
+python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/compare_stretch_batch.py \
   --root /path/to/root \
   --show
 ```
@@ -273,7 +270,7 @@ If your root directory is:
 run:
 
 ```bash
-python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/compare_batch_rg_T.py \
+python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/compare_stretch_batch.py \
   --root /Users/joshua/Desktop/MD/2026_04/0408/02_Youngs_Modulus/length7-Tstar0.7 \
   --jobs 4 \
   --analysis-jobs 1 \

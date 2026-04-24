@@ -14,9 +14,10 @@ File names now encode the main distinguishing parameters directly:
 - relaxation: boundary + `T*` + cubic `box_length`
 - stretching: force + `T*` + `x_head_margin` + protocol variant
 
-- `analysis/analyze_force_clamp_aligned_box.py`: main analysis entry point for `force_clamp_response.dat`
-- `analysis/analyze_force_clamp_aligned_box_loess.py`: wrapper around the main analyzer with default `trend_method=loess` and output directory `analysis_loess`
-- `analysis/analyze_force_clamp_aligned_box_savgol.py`: wrapper around the main analyzer with default `trend_method=savgol`, output directory `analysis_savgol`, and default `sg_window=11`
+- `analysis/analyze_stretch_single.py`: current single-output stretch/Rg analyzer with central dataset cache
+- `analysis/analyze_stretch_batch.py`: batch wrapper for running the single-output analyzer across `output_*` folders
+- `analysis/compare_stretch_batch.py`: batch comparison tool for `L`, `Lx`, `Rg`, and `Rg_x` versus time and force
+- `analysis/backup/legacy_force_clamp/`: older force-clamp-only analyzers kept for reference
 - `helpers/build_output_root.py`: generates `output_root` names
 - `relaxation/in.restart_relaxation_fff_T050_box200_xuyu-zu.lmp`: baseline `fff`, `T*=0.50`, cubic `box_length=200`
 - `relaxation/in.restart_relaxation_fff_T080_box400_xuyu-zu.lmp`: `fff`, `T*=0.80`, cubic `box_length=400`
@@ -277,83 +278,27 @@ python /path/to/Relaxation-and-Stretching/stretching/run_all_lammps_tmux_linux.p
 
 ## Analysis Scripts
 
-For the packaged analysis tool group, including the new central-cache `rg_T_*` workflow, batch processing, and `Rg`-vs-`F` comparison commands, see:
+For the packaged analysis tool group, including the central-cache stretch/Rg workflow, batch processing, and `Rg`-vs-`F` comparison commands, see:
 
 - `Relaxation-and-Stretching/analysis/README.md`
 
-### Script Relationship
+Current entry points:
 
-- `helpers/build_output_root.py` is used by the LAMMPS input scripts to construct `output_root`
-- `analysis/analyze_force_clamp_aligned_box.py` is the main analysis program
-- `analysis/analyze_force_clamp_aligned_box_loess.py` imports the main program and runs it with LOESS defaults
-- `analysis/analyze_force_clamp_aligned_box_savgol.py` imports the main program and runs it with Savitzky-Golay defaults
+- `analysis/analyze_stretch_single.py`: analyze one `output_*` directory and build/reuse one cached `stretch_dataset_*.dat`
+- `analysis/analyze_stretch_batch.py`: run the single-output analyzer across many `output_*` directories
+- `analysis/compare_stretch_batch.py`: generate the time-comparison canvas and final-window `Rg`-vs-`F` summary canvas
 
-### Default Current-Directory Workflow
+Legacy force-clamp-only scripts are kept under `analysis/backup/legacy_force_clamp/`.
 
-If you `cd` into a simulation output directory that contains `force_clamp_response.dat`, the analysis scripts now default to that file automatically. You do **not** need to pass the data path explicitly.
-
-Main analyzer:
+Recommended `Rg`-`F` command:
 
 ```bash
-cd /path/to/output-directory
-python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/analyze_force_clamp_aligned_box.py
+python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/compare_stretch_batch.py \
+  --root /path/to/root \
+  --jobs 4 \
+  --analysis-jobs 1 \
+  --show
 ```
-
-LOESS shortcut:
-
-```bash
-cd /path/to/output-directory
-python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/analyze_force_clamp_aligned_box_loess.py
-```
-
-Savitzky-Golay shortcut:
-
-```bash
-cd /path/to/output-directory
-python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/analyze_force_clamp_aligned_box_savgol.py
-```
-
-If `force_clamp_response.dat` is not in the current working directory, pass it explicitly:
-
-```bash
-python /Users/joshua/Desktop/MD/LAMMPS-LCE-TOLL/Relaxation-and-Stretching/analysis/analyze_force_clamp_aligned_box.py \
-  /path/to/force_clamp_response.dat
-```
-
-### Analysis Outputs
-
-- main analyzer default output directory: `analysis/`
-- LOESS wrapper default output directory: `analysis_loess/`
-- Savitzky-Golay wrapper default output directory: `analysis_savgol/`
-- all three write PNG figures plus `summary.json`
-- the analyzer tolerates `force_clamp_response.dat` files that contain NUL-padded gaps from interrupted or resumed runs; pure NUL blocks are ignored during parsing
-
-### Important Analysis Parameters
-
-- `--trend-method loess|savgol`
-  - choose the smoothing backend explicitly when using the main analyzer
-- `--trend-frac`
-  - LOESS neighborhood fraction
-  - default is `0.08`
-  - larger values smooth more aggressively and suppress local fluctuations
-  - smaller values preserve local structure but track noise more easily
-- `--trend-max-points`
-  - maximum number of points used internally by LOESS before downsampling + interpolation
-  - default is `2000`
-- `--sg-window`
-  - controls Savitzky-Golay smoothing strength
-  - wrapper default is `11`
-  - larger windows smooth more strongly but can wash out short-lived force or velocity features
-  - smaller windows preserve sharper transients but are more sensitive to noise
-  - in practice: start with `11`, try `21` or `31` only for longer and noisier trajectories
-- `--sg-order`
-  - local polynomial order for the Savitzky-Golay fit
-  - default is `3`
-  - keep this low unless you have a specific reason to fit higher-order local curvature
-- `--output-dir`
-  - override the default analysis output directory if you want results somewhere else
-- `--show`
-  - opens an interactive matplotlib window if matplotlib is available in the current Python environment
 
 ## Input / Output Naming
 

@@ -11,7 +11,7 @@ from tempfile import TemporaryDirectory
 
 from PIL import Image, ImageDraw
 
-from rg_T_analyze_force_clamp_aligned_box import (
+from analyze_stretch_single import (
     ANALYSIS_CACHE_DIRNAME,
     DEFAULT_DATA_FILENAME,
     _color_with_alpha,
@@ -86,7 +86,7 @@ def parse_args() -> argparse.Namespace:
         "--output-file",
         type=Path,
         default=None,
-        help=f"Output PNG path for the time-series canvas (default: <root>/{ANALYSIS_CACHE_DIRNAME}/rg_T_batch_compare.png)",
+        help=f"Output PNG path for the time-series canvas (default: <root>/{ANALYSIS_CACHE_DIRNAME}/stretch_batch_compare.png)",
     )
     parser.add_argument(
         "--show",
@@ -828,7 +828,7 @@ def main() -> int:
         raise SystemExit(f"Root directory does not exist: {root}")
 
     analysis_root = ensure_analysis_root(root)
-    output_file = (args.output_file or (analysis_root / "rg_T_batch_compare.png")).expanduser().resolve()
+    output_file = (args.output_file or (analysis_root / "stretch_batch_compare.png")).expanduser().resolve()
     summary_output_file = output_file.with_name(f"{output_file.stem}_force_window{output_file.suffix}")
 
     data_files, skipped_dirs = discover_output_data_files(root)

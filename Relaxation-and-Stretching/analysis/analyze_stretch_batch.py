@@ -10,7 +10,7 @@ import re
 import subprocess
 import sys
 
-from rg_T_analyze_force_clamp_aligned_box import (
+from analyze_stretch_single import (
     ANALYSIS_CACHE_DIRNAME,
     WAIT_LIST_DIRNAME,
     dataset_filename_from_output_dir,
@@ -21,9 +21,9 @@ from rg_T_analyze_force_clamp_aligned_box import (
 DEFAULT_DATA_FILENAME = "force_clamp_response.dat"
 OUTPUT_PREFIX = "output_"
 SCRIPT_BY_VARIANT = {
-    "base": "rg_T_analyze_force_clamp_aligned_box.py",
-    "loess": "rg_T_analyze_force_clamp_aligned_box_loess.py",
-    "savgol": "rg_T_analyze_force_clamp_aligned_box_savgol.py",
+    "base": "analyze_stretch_single.py",
+    "loess": "analyze_stretch_single_loess.py",
+    "savgol": "analyze_stretch_single_savgol.py",
 }
 
 
@@ -40,7 +40,7 @@ def natural_sort_key(text: str) -> list[object]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Batch-run rg_T force-clamp analysis across output_* directories."
+        description="Batch-run cached stretch/Rg analysis across output_* directories."
     )
     parser.add_argument(
         "--root",
@@ -52,12 +52,12 @@ def parse_args() -> argparse.Namespace:
         "--variant",
         choices=tuple(SCRIPT_BY_VARIANT),
         default="base",
-        help="Which rg_T analyzer entrypoint to run",
+        help="Which stretch analyzer entrypoint to run",
     )
     parser.add_argument(
         "--show",
         action="store_true",
-        help="Pass --show to each per-directory rg_T analyzer; windows open sequentially",
+        help="Pass --show to each per-directory stretch analyzer; windows open sequentially",
     )
     parser.add_argument(
         "--python-bin",
@@ -74,7 +74,7 @@ def parse_args() -> argparse.Namespace:
         "--analysis-jobs",
         type=int,
         default=None,
-        help="Parallel dump-parser worker count forwarded to each rg_T analyzer (default: auto when batch jobs=1, else 1)",
+        help="Parallel dump-parser worker count forwarded to each stretch analyzer (default: auto when batch jobs=1, else 1)",
     )
     parser.add_argument(
         "--dry-run",
