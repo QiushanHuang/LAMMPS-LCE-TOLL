@@ -7,3 +7,6 @@ Restart.*
 Final.*.bin
 force_clamp_response.dat
 relaxation_state.dat
+.DS_Store
+__pycache__/
+*.pyc
